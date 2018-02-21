@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Marco Polo</title>
+
+    <!-- <script defer src="/__/firebase/4.9.1/firebase-app.js"></script>
+    <script defer src="/__/firebase/4.9.1/firebase-auth.js"></script>
+    <script defer src="/__/firebase/4.9.1/firebase-database.js"></script>
+    <script defer src="/__/firebase/init.js"></script> -->
+
+    <!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.6.2/css/bulma.min.css"> -->
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <link href="https://use.fontawesome.com/releases/v5.0.6/css/all.css" rel="stylesheet">
+
+    <style media="screen">
+      body {color: rgba(0,0,0,0.87); background-color: #f9f9f9; font-family: Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; }
+      #loading {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+      }
+      .list-item-enter-active,
+      .list-item-leave-active {
+        -webkit-transition: opacity 0.3s, -webkit-transform 0.3s;
+        transition: opacity 0.3s, -webkit-transform 0.3s;
+        transition: opacity 0.3s, transform 0.3s;
+        transition: opacity 0.3s, transform 0.3s, -webkit-transform 0.3s;
+        -webkit-transform-origin: left center;
+                transform-origin: left center;
+      }
+      .list-item-enter,
+      .list-item-leave-to {
+        opacity: 0;
+        -webkit-transform: scale(0.5);
+                transform: scale(0.5);
+      }
+
+    </style>
+  </head>
+  <body>
+  <!-- Vue App -->
+  <div  id="marco-polo-app">
+    <!-- Page loader -->
+    <section v-if="app_loading">
+      <div id="loading">
+        <i class="fas fa-spinner fa-spin text-primary" style="font-size:36px;"></i>
+      </div>
+    </section>
+    <!-- END Page loader -->
+
+    <!-- Main App -->
+    <section v-else>
+      <!-- Toolbar -->
+      <ul class="nav justify-content-end p-2">
+        <li class="nav-item">
+          <span class="nav-link" style="color:#ccc">
+            <small>{{login_user}}</small>
+          </span>
+        </li>
+        <li class="nav-item" v-on:click="toggleSignIn">
+          <a class="nav-link active btn btn-primary" href="#">
+            <i v-if="login_progress" class="fas fa-spinner fa-spin"></i>
+            <span v-else>
+              <i v-if="login_status" class="fas fa-sign-out-alt "></i>
+              <i v-else class="fas fa-sign-in-alt"></i>
+            </span>
+            <span class="ml-2">{{login_button_action}}</span>
+          </a>
+        </li>
+      </ul>
+      <!-- END Toolbar -->
+      <!-- Page -->
+      <div  class="container">
+        <!-- App page -->
+        <section v-if="login_status">
+          <div class="row">
+            <div class="col col-xs-12">
+              <button type="button" class="btn btn-primary" v-on:click="callMarco"> <i class="fas fa-bullhorn"></i> <span class="ml-2">Callout Marco</span> </button>
+
+            </div>
+          </div>
+          <div class="row">
+            <!-- Marco-Polo Lists -->
+            <div class="col col-sm-12 col-lg-6">
+              <h1 class="mt-5">Marco<span class="ml-1"style="font-size:50%">({{marcos.length}})</span></h1>
+              <p>Client pushes <code>Object</code> to <code>/marco</code> in firebase. Shows as triggered if <code>/polo/${push_id}</code> exists.</p>
+              <transition-group name="list-item" tag="ul" class="list-group">
+                <li v-for="marco in marcos" class="list-group-item d-flex justify-content-between align-items-center" :key="marco.id">
+                  <span>
+                    {{ marco.message }}
+                    <small class="text-muted">{{marco.timestamp | date}}</small>
+                    <small class="text-muted">{{marco.id}}</small>
+                  </span>
+                  <span v-if="hasPolo(marco.id)" class="badge badge-success badge-pill"><i class="fas fa-check"></i> CF triggered</span>
+                  <span v-else class="badge badge-danger badge-pill"><i class="fas fa-times"></i> CF not triggered</span>
+                </li>
+              </transition-group>
+            </div>
+            <div class="col col-sm-12 col-lg-6">
+              <h1 class="mt-5">Polo<span class="ml-1"style="font-size:50%">({{polos.length}})</span></h1>
+              <p>Cloud functions listents to <code>onWrite</code> of <code>/marco</code> and writes response to <code>/polo/${push_id}</code>. </p>
+              <transition-group name="list-item" tag="ul" class="list-group">
+                <li v-for="polo in polos" class="list-group-item d-flex justify-content-between align-items-center" :key="polo.id">
+                  <span>
+                    {{ polo.message }}
+                    <small class="text-muted">{{polo.timestamp | date}}</small>
+                    <small class="text-muted">{{polo.id}}</small>
+                  </span>
+                </li>
+              </transition-group>
+            </div>
+          </div>
+          <!-- END Marco-Polo Lists -->
+        </section>
+        <!-- END App page -->
+          <!-- Login Card -->
+          <section v-else>
+            <div class="row">
+              <div class="col">
+                <div class="card mt-5">
+                  <div class="card-body">
+                    <h5 class="card-title">No User Signed In</h5>
+                    <p class="card-text">Please sign in to call marco</p>
+                    <a href="#" v-on:click="toggleSignIn" class="btn btn-primary">
+                      <i v-if="login_progress" class="fas fa-spinner fa-spin"></i>
+                      <span v-else>
+                        <i v-if="login_status" class="fas fa-sign-out-alt "></i>
+                        <i v-else class="fas fa-sign-in-alt"></i>
+                      </span>
+                      <span class="ml-2">{{login_button_action}}</span></a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <!-- END Login Card -->
+          </section>
+          <div class="my-5"> </div>
+        </div>
+        <!-- END Page -->
+      </section>
+      <!-- END Main App -->
+    </div>
+
+
+    <script src="https://www.gstatic.com/firebasejs/4.9.1/firebase.js"></script>
+    <script>
+      // Initialize Firebase
+      var config = {
+        apiKey: "AIzaSyA36tz-U3yUmiu3_yFU_l5lj8bC3GyhGs8",
+        authDomain: "marco-polo-test.firebaseapp.com",
+        databaseURL: "https://marco-polo-test.firebaseio.com",
+        projectId: "marco-polo-test",
+        storageBucket: "marco-polo-test.appspot.com",
+        messagingSenderId: "469683632047"
+      };
+      firebase.initializeApp(config);
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.5.13/dist/vue.js"></script>
+    <!-- <script src="https://cdn.jsdelivr.net/npm/vue"></script> -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.20.1/moment.min.js"></script>
+
+    <script type="text/javascript">
+
+    var marcoApp = new Vue({
+      el: '#marco-polo-app',
+      data: {
+        app_loading:true,
+        login_button_action:"Sign In",
+        login_user:"no user",
+        login_status:false,
+        login_progress:false,
+        marcos: [],
+        polos:[]
+      },
+      beforeCreate(){
+        var _this = this
+        firebase.auth().onAuthStateChanged(function(user) {
+          if (user) {
+            _this.login_button_action = "Sign Out"
+            _this.login_user = user.uid
+            _this.login_status = true
+            _this.login_progress = false
+          } else {
+            _this.login_button_action = "Sign In"
+            _this.login_user = "no user"
+            _this.login_status = false
+            _this.login_progress = false
+          }
+          _this.app_loading = false
+          _this.bindData()
+        });
+      },
+      filters:{
+        date(v){
+          return v ? moment(v).format("DD-MMM-YYYY HH:mm:ss") : null
+        }
+      },
+      methods:{
+        callMarco(){
+          let marco = {
+            message:'MARCO',
+            timestamp: + new Date()
+          }
+          firebase.database().ref('marco').push(marco)
+        },
+        hasPolo(id){
+          return this.polos.some(function (item) {
+            return item.id === id;
+          });
+        },
+        bindData(){
+          var _this = this
+          firebase.database().ref('marco').orderByKey().on('value', function(s){
+            _this.marcos = _this.snapToArray(s.val())
+          })
+          firebase.database().ref('polo').orderByKey().on('value', function(s){
+            _this.polos = _this.snapToArray(s.val())
+          })
+        },
+        detachListners(){
+          firebase.database().ref('marco').off()
+          firebase.database().ref('polo').off()
+        },
+        toggleSignIn() {
+          var _this = this
+          this.login_progress=true
+          if (firebase.auth().currentUser) {
+            firebase.auth().signOut();
+            _this.detachListners()
+          } else {
+            this.login_button_action = "Signing in..."
+            firebase.auth().signInAnonymously().catch(function(error) {
+              var errorCode = error.code;
+              var errorMessage = error.message;
+              if (errorCode === 'auth/operation-not-allowed') {
+                alert('You must enable Anonymous auth in the Firebase Console.');
+              } else {
+                console.error(error);
+              }
+            });
+          }
+        },
+        snapToArray(snpashot){
+          let item_list = []
+          for(var item_id in snpashot){
+            let item = snpashot[item_id]
+                item.id = item_id
+            item_list.push(item)
+          }
+          return item_list.reverse()
+        }
+      }
+      })
+    </script>
+  </body>
+</html>
